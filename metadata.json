@@ -1,0 +1,6 @@
+{
+  "name": "AvaCall - تماس صوتی و تصویری اندروید",
+  "description": "اپلیکیشن تماس صوتی و تصویری گروهی با کیفیت HD، زنگ خوردن در پس‌زمینه، چت، پیام صوتی و ارسال فایل‌های حجیم",
+  "requestFramePermissions": ["camera", "microphone", "display-capture"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
