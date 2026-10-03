@@ -158,8 +158,7 @@ export default function App() {
   const connectWebSocket = useCallback(() => {
     if (!currentUser) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = 'wss://videochat3-q22j.onrender.com/ws';
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -224,14 +223,18 @@ export default function App() {
               soundService.stopOutgoingRingback();
               soundService.playConnectedTone();
 
-              setActiveCall((prev) => (prev ? { ...prev, status: 'connected' } : null));
+              setActiveCall((prev) =>
+                prev ? { ...prev, status: 'connected' } : null
+              );
 
               // Caller creates WebRTC offer
               const target = data.fromUsername;
               const pc = webrtcService.getOrCreatePeerConnection(
                 target,
                 (remoteStream) => {
-                  setRemoteStreams((prev) => new Map(prev).set(target, remoteStream));
+                  setRemoteStreams((prev) =>
+                    new Map(prev).set(target, remoteStream)
+                  );
                 },
                 (targetUser, candidate) => {
                   wsRef.current?.send(
@@ -246,6 +249,7 @@ export default function App() {
               );
 
               const offer = await webrtcService.createOffer(target);
+
               wsRef.current?.send(
                 JSON.stringify({
                   type: 'webrtc_signal',
@@ -258,14 +262,17 @@ export default function App() {
               // Rejected or Busy
               stopAllRinging();
               soundService.playEndCallTone();
+
               alert(
                 data.status === 'busy'
                   ? 'کاربر در حال مکالمه است.'
                   : 'تماس توسط مخاطب رد شد.'
               );
+
               webrtcService.closeAll();
               setActiveCall(null);
             }
+
             break;
           }
 
@@ -296,7 +303,9 @@ export default function App() {
               const pc = webrtcService.getOrCreatePeerConnection(
                 from,
                 (remoteStream) => {
-                  setRemoteStreams((prev) => new Map(prev).set(from, remoteStream));
+                  setRemoteStreams((prev) =>
+                    new Map(prev).set(from, remoteStream)
+                  );
                 },
                 (targetUser, candidate) => {
                   wsRef.current?.send(
@@ -310,7 +319,11 @@ export default function App() {
                 }
               );
 
-              const answer = await webrtcService.handleOffer(from, signal.sdp);
+              const answer = await webrtcService.handleOffer(
+                from,
+                signal.sdp
+              );
+
               wsRef.current?.send(
                 JSON.stringify({
                   type: 'webrtc_signal',
@@ -322,8 +335,12 @@ export default function App() {
             } else if (signal.type === 'answer') {
               await webrtcService.handleAnswer(from, signal.sdp);
             } else if (signal.type === 'candidate') {
-              await webrtcService.handleIceCandidate(from, signal.candidate);
+              await webrtcService.handleIceCandidate(
+                from,
+                signal.candidate
+              );
             }
+
             break;
           }
 
@@ -338,37 +355,52 @@ export default function App() {
               isGroup: true,
               status: 'connected',
             });
+
             if (data.messages) {
               setMessages(data.messages);
             }
+
             break;
           }
 
           case 'participant_joined': {
             const newUser: UserProfile = data.user;
+
             setGroupRooms((prev) =>
               prev.map((r) =>
                 r.id === data.roomId
-                  ? { ...r, participants: [...r.participants.filter((p) => p.username !== newUser.username), newUser] }
+                  ? {
+                      ...r,
+                      participants: [
+                        ...r.participants.filter(
+                          (p) => p.username !== newUser.username
+                        ),
+                        newUser,
+                      ],
+                    }
                   : r
               )
             );
+
             break;
           }
 
           case 'participant_left': {
             webrtcService.closePeerConnection(data.username);
+
             setRemoteStreams((prev) => {
               const next = new Map(prev);
               next.delete(data.username);
               return next;
             });
+
             break;
           }
 
           // Chat Messages
           case 'new_chat_message': {
             const msg: ChatMessage = data.message;
+
             setMessages((prev) => {
               if (prev.some((m) => m.id === msg.id)) return prev;
               return [...prev, msg];
@@ -377,14 +409,20 @@ export default function App() {
             if (msg.senderUsername !== currentUser.username) {
               soundService.playMessagePing();
               notificationService.vibrateShort();
+
               notificationService.showChatMessageNotification(
                 msg.senderDisplayName,
-                msg.text || (msg.voiceUrl ? 'پیام صوتی' : 'یک فایل ارسال شد')
+                msg.text ||
+                  (msg.voiceUrl
+                    ? 'پیام صوتی'
+                    : 'یک فایل ارسال شد')
               );
+
               if (activeTab !== 'chat') {
                 setUnreadCount((c) => c + 1);
               }
             }
+
             break;
           }
 
@@ -412,26 +450,36 @@ export default function App() {
     if (currentUser) {
       connectWebSocket();
     }
+
     return () => {
       if (wsRef.current) wsRef.current.close();
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
   }, [currentUser, connectWebSocket]);
 
-  // Handle URL params for direct call or room join (e.g. ?call=username or ?join=room1)
+  // Handle URL params for direct call or room join
+  // (e.g. ?call=username or ?join=room1)
   useEffect(() => {
     if (!currentUser) return;
+
     const params = new URLSearchParams(window.location.search);
     const callTarget = params.get('call');
     const joinRoom = params.get('join');
 
-    if (callTarget && callTarget.toLowerCase() !== currentUser.username.toLowerCase()) {
+    if (
+      callTarget &&
+      callTarget.toLowerCase() !== currentUser.username.toLowerCase()
+    ) {
       const user: UserProfile = {
         username: callTarget.toLowerCase(),
         displayName: callTarget,
         avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${callTarget}`,
         status: 'online',
       };
+
       setActiveChatUser(user);
       setActiveTab('chat');
     } else if (joinRoom) {
@@ -440,14 +488,23 @@ export default function App() {
   }, [currentUser]);
 
   // Initiate Outgoing Call
-  const handleStartCall = async (target: UserProfile, type: CallType) => {
+  const handleStartCall = async (
+    target: UserProfile,
+    type: CallType
+  ) => {
     if (!currentUser || !wsRef.current) return;
 
     try {
       // Start local camera/mic stream with HD constraints
-      await webrtcService.startLocalMedia(type, settings.videoQuality, settings.cameraFacingMode);
+      await webrtcService.startLocalMedia(
+        type,
+        settings.videoQuality,
+        settings.cameraFacingMode
+      );
 
-      const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const callId = `call_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 6)}`;
 
       setActiveCall({
         callId,
@@ -478,6 +535,7 @@ export default function App() {
   // Accept Incoming Call
   const handleAcceptCall = async () => {
     if (!activeCall || !wsRef.current) return;
+
     stopAllRinging();
 
     try {
@@ -498,7 +556,9 @@ export default function App() {
         })
       );
 
-      setActiveCall((prev) => (prev ? { ...prev, status: 'connected' } : null));
+      setActiveCall((prev) =>
+        prev ? { ...prev, status: 'connected' } : null
+      );
     } catch (err) {
       alert('خطا در دسترسی به دوربین یا میکروفون');
       handleRejectCall();
@@ -508,6 +568,7 @@ export default function App() {
   // Reject Incoming Call
   const handleRejectCall = () => {
     if (!activeCall || !wsRef.current) return;
+
     stopAllRinging();
 
     wsRef.current.send(
@@ -536,7 +597,10 @@ export default function App() {
           })
         );
       } else {
-        const targetUsername = activeCall.targetUser?.username || activeCall.caller?.username;
+        const targetUsername =
+          activeCall.targetUser?.username ||
+          activeCall.caller?.username;
+
         if (targetUsername) {
           wsRef.current.send(
             JSON.stringify({
@@ -555,11 +619,18 @@ export default function App() {
   };
 
   // Join Group Room
-  const handleJoinGroupRoom = async (roomId: string, callType: CallType = 'video') => {
+  const handleJoinGroupRoom = async (
+    roomId: string,
+    callType: CallType = 'video'
+  ) => {
     if (!currentUser || !wsRef.current) return;
 
     try {
-      await webrtcService.startLocalMedia(callType, settings.videoQuality, settings.cameraFacingMode);
+      await webrtcService.startLocalMedia(
+        callType,
+        settings.videoQuality,
+        settings.cameraFacingMode
+      );
 
       wsRef.current.send(
         JSON.stringify({
@@ -578,7 +649,9 @@ export default function App() {
   // Create Group Room
   const handleCreateGroupRoom = (roomName: string) => {
     if (!currentUser) return;
+
     const roomId = `room_${Date.now().toString(36)}`;
+
     const newRoom: GroupRoom = {
       id: roomId,
       name: roomName,
@@ -586,6 +659,7 @@ export default function App() {
       participants: [currentUser],
       callActive: true,
     };
+
     setGroupRooms((prev) => [newRoom, ...prev]);
     handleJoinGroupRoom(roomId, 'video');
   };
@@ -612,6 +686,7 @@ export default function App() {
   // Send Typing Indicator
   const handleSendTyping = (typingState: boolean) => {
     if (!wsRef.current) return;
+
     wsRef.current.send(
       JSON.stringify({
         type: 'typing',
@@ -630,9 +705,11 @@ export default function App() {
     if (settings.ringtoneEnabled) {
       soundService.startIncomingRingtone();
     }
+
     if (settings.vibrationEnabled) {
       notificationService.startCallVibration();
     }
+
     if (settings.wakeLockEnabled) {
       notificationService.acquireWakeLock();
     }
@@ -660,12 +737,16 @@ export default function App() {
   // Filter messages for current chat
   const filteredMessages = messages.filter((m) => {
     if (activeRoomId) return m.roomId === activeRoomId;
+
     if (activeChatUser) {
       return (
-        (m.senderUsername === currentUser?.username && m.targetUsername === activeChatUser.username) ||
-        (m.senderUsername === activeChatUser.username && m.targetUsername === currentUser?.username)
+        (m.senderUsername === currentUser?.username &&
+          m.targetUsername === activeChatUser.username) ||
+        (m.senderUsername === activeChatUser.username &&
+          m.targetUsername === currentUser?.username)
       );
     }
+
     return false;
   });
 
@@ -685,14 +766,19 @@ export default function App() {
           <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md flex items-center justify-center">
             <Smartphone className="w-5 h-5 text-slate-950" />
           </div>
+
           <div>
             <h1 className="text-sm font-black tracking-tight text-white flex items-center gap-1.5">
               <span>AvaCall</span>
+
               <span className="text-[10px] font-normal px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 Android PWA
               </span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-mono">@{currentUser.username}</p>
+
+            <p className="text-[10px] text-slate-400 font-mono">
+              @{currentUser.username}
+            </p>
           </div>
         </div>
 
@@ -720,7 +806,11 @@ export default function App() {
             className="p-2 rounded-xl bg-slate-800 border border-slate-700/80 text-slate-300 hover:text-white transition"
             title={theme === 'dark' ? 'حالت روز' : 'حالت شب'}
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
           </button>
 
           {/* Profile Avatar */}
@@ -734,6 +824,7 @@ export default function App() {
               alt={currentUser.displayName}
               className="w-9 h-9 rounded-full object-cover border-2 border-emerald-500 bg-slate-800 shadow"
             />
+
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-slate-900" />
           </button>
         </div>
@@ -746,24 +837,39 @@ export default function App() {
           <div className="fixed inset-0 z-50 flex flex-col justify-between bg-slate-950/95 backdrop-blur-xl p-6 text-white text-center">
             <div className="pt-8">
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-400 text-xs font-medium">
-                {activeCall.callType === 'video' ? <Video className="w-3.5 h-3.5" /> : <Phone className="w-3.5 h-3.5" />}
-                تماس {activeCall.callType === 'video' ? 'تصویری' : 'صوتی'} خروجی...
+                {activeCall.callType === 'video' ? (
+                  <Video className="w-3.5 h-3.5" />
+                ) : (
+                  <Phone className="w-3.5 h-3.5" />
+                )}
+
+                تماس{' '}
+                {activeCall.callType === 'video'
+                  ? 'تصویری'
+                  : 'صوتی'}{' '}
+                خروجی...
               </span>
+
               <h2 className="mt-4 text-2xl font-black text-white">
                 {activeCall.targetUser?.displayName}
               </h2>
-              <p className="text-xs text-emerald-400 font-mono">@{activeCall.targetUser?.username}</p>
+
+              <p className="text-xs text-emerald-400 font-mono">
+                @{activeCall.targetUser?.username}
+              </p>
             </div>
 
             <div className="my-auto flex flex-col items-center">
               <div className="relative">
                 <div className="absolute -inset-4 rounded-full bg-blue-500/30 blur-xl animate-ring-pulse" />
+
                 <img
                   src={activeCall.targetUser?.avatar}
                   alt={activeCall.targetUser?.displayName}
                   className="relative w-36 h-36 rounded-full object-cover border-4 border-blue-500/60 shadow-2xl bg-slate-800"
                 />
               </div>
+
               <div className="mt-6 flex items-center gap-2 text-xs text-slate-300">
                 <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
                 <span>در حال زنگ خوردن گوشی مخاطب...</span>
@@ -778,7 +884,10 @@ export default function App() {
               >
                 <PhoneOff className="w-7 h-7 text-white" />
               </button>
-              <span className="block text-xs text-rose-400 mt-2 font-medium">لغو تماس</span>
+
+              <span className="block text-xs text-rose-400 mt-2 font-medium">
+                لغو تماس
+              </span>
             </div>
           </div>
         )}
@@ -829,6 +938,7 @@ export default function App() {
                 avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${target}`,
                 status: 'online',
               });
+
               setActiveTab('chat');
             }}
           />
@@ -841,7 +951,8 @@ export default function App() {
             roomId={activeRoomId || undefined}
             roomName={
               activeRoomId
-                ? groupRooms.find((r) => r.id === activeRoomId)?.name || activeRoomId
+                ? groupRooms.find((r) => r.id === activeRoomId)?.name ||
+                  activeRoomId
                 : undefined
             }
             messages={filteredMessages}
@@ -872,7 +983,10 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={(tab) => {
           setActiveTab(tab);
-          if (tab === 'chat') setUnreadCount(0);
+
+          if (tab === 'chat') {
+            setUnreadCount(0);
+          }
         }}
         onOpenProfile={() => setIsProfileOpen(true)}
         unreadMessagesCount={unreadCount}
