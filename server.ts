@@ -502,13 +502,11 @@ async function startServer() {
     });
   }
 
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 10000;
 
-  server.listen(PORT, () => {
-    console.log(
-      `AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`
-    );
-  });
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`);
+});
 }
 
 startServer();
