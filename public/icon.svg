@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  
+  <!-- Base Squircle -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  
+  <!-- Subtle circular pulse ring -->
+  <circle cx="230" cy="256" r="160" fill="none" stroke="#ffffff" stroke-width="4" stroke-opacity="0.2" />
+  <circle cx="230" cy="256" r="120" fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.3" />
+
+  <!-- Phone Handset -->
+  <g transform="translate(140, 160) scale(1.15)">
+    <path d="M60.8 77.2c16.3 32 42.4 58.1 74.4 74.4l24.9-24.9c3.1-3.1 7.6-4.1 11.5-2.8 12.5 4.1 26 6.3 39.9 6.3 6.6 0 12 5.4 12 12v42c0 6.6-5.4 12-12 12C94.4 196.2 15.8 117.6 15.8 20c0-6.6 5.4-12 12-12h42c6.6 0 12 5.4 12 12 0 13.9 2.2 27.4 6.3 39.9 1.3 3.9.3 8.4-2.8 11.5L60.8 77.2z" fill="#ffffff" filter="url(#shadow)"/>
+  </g>
+
+  <!-- Video Camera badge -->
+  <g transform="translate(300, 300)">
+    <circle cx="64" cy="64" r="64" fill="url(#accent)" filter="url(#shadow)"/>
+    <path d="M44 48h32c6.6 0 12 5.4 12 12v16c0 6.6-5.4 12-12 12H44c-6.6 0-12-5.4-12-12V60c0-6.6 5.4-12 12-12zm48 14l20-12v36l-20-12V62z" fill="#ffffff"/>
+  </g>
+</svg>
