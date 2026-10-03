@@ -298,215 +298,278 @@ wss.on('connection', (ws: WebSocket) => {
           break;
         }
 
-        // Real-time Chat (Text, Voice Message, File transfer)
-        case 'chat_message': {
-          const sender = clientData.user;
-          if (!sender) return;
+       // Real-time Chat (Text, Voice Message, File transfer)
+case 'chat_message': {
 
-          const msg = {
-            id: data.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            senderUsername: sender.username,
-            senderDisplayName: sender.displayName,
-            senderAvatar: sender.avatar,
-            targetUsername: data.targetUsername ? data.targetUsername.toLowerCase().trim() : undefined,
-            roomId: data.roomId,
-            text: data.text || '',
-            voiceUrl: data.voiceUrl,
-            voiceDuration: data.voiceDuration,
-            file: data.file, // { name, size, type, dataUrl }
-            timestamp: Date.now(),
-          };
+  const sender = clientData.user;
+  if (!sender) return;
 
-          if (data.roomId) {
-            // Room message
-            if (!messagesByRoom.has(data.roomId)) {
-              messagesByRoom.set(data.roomId, []);
-            }
-            const list = messagesByRoom.get(data.roomId)!;
-            list.push(msg);
-            if (list.length > 200) list.shift(); // keep last 200
-            broadcastToRoom(data.roomId, {
-              type: 'new_chat_message',
-              message: msg,
-            });
-          } else if (data.targetUsername) {
-            // Direct message
-            const targetUsername = data.targetUsername.toLowerCase().trim();
-            // Send to sender for confirmation
-            ws.send(
-              JSON.stringify({
-                type: 'new_chat_message',
-                message: msg,
-              })
-            );
-            // Send to target
-            sendToUser(targetUsername, {
-              type: 'new_chat_message',
-              message: msg,
-            });
-          }
-          break;
-        }
-
-        // Typing indicator
-        case 'typing': {
-          const sender = clientData.user;
-          if (!sender) return;
-
-          if (data.roomId) {
-            broadcastToRoom(
-              data.roomId,
-              {
-                type: 'user_typing',
-                username: sender.username,
-                displayName: sender.displayName,
-                roomId: data.roomId,
-                isTyping: data.isTyping,
-              },
-              sender.username
-            );
-          } else if (data.targetUsername) {
-            sendToUser(data.targetUsername.toLowerCase().trim(), {
-              type: 'user_typing',
-              username: sender.username,
-              displayName: sender.displayName,
-              isTyping: data.isTyping,
-            });
-          }
-          break;
-        }
-
-        default:
-          break;
-      }
-    } catch (err) {
-      console.error('Error handling WebSocket message:', err);
-    }
-  });
-
-  ws.on('close', () => {
-    clients.delete(ws);
-    if (clientData.user) {
-      const username = clientData.user.username;
-      usersByUsername.delete(username);
-
-      if (clientData.activeRoomId && rooms.has(clientData.activeRoomId)) {
-        const roomUsers = rooms.get(clientData.activeRoomId)!;
-        roomUsers.delete(username);
-        if (roomUsers.size === 0) {
-          rooms.delete(clientData.activeRoomId);
-        } else {
-          broadcastToRoom(clientData.activeRoomId, {
-            type: 'participant_left',
-            roomId: clientData.activeRoomId,
-            username,
-          });
-        }
-      }
-
-      broadcastUserList();
-    }
-  });
-});
-
-// Periodic ping to keep alive
-setInterval(() => {
-  for (const [ws, client] of clients.entries()) {
-    if (!client.isAlive) {
-      ws.terminate();
-      clients.delete(ws);
-      if (client.user) {
-        usersByUsername.delete(client.user.username);
-      }
-      continue;
-    }
-    client.isAlive = false;
-    ws.ping();
-  }
-}, 30000);
-
-// API Endpoints
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    activeConnections: clients.size,
-    registeredUsers: usersByUsername.size,
-    roomsCount: rooms.size,
+  const msg = {
+    id: data.id || `msg_${Date.now()}`,
+    senderUsername: sender.username,
+    senderDisplayName: sender.displayName,
+    senderAvatar: sender.avatar,
+    targetUsername: data.targetUsername?.toLowerCase().trim(),
+    roomId: data.roomId,
+    text: data.text || '',
+    voiceUrl: data.voiceUrl,
+    voiceDuration: data.voiceDuration,
+    file: data.file,
     timestamp: Date.now(),
-  });
-});
+  };
 
-app.get('/api/users', (req, res) => {
-  const list: UserProfile[] = [];
-  for (const client of usersByUsername.values()) {
-    if (client.user) list.push(client.user);
-  }
-  res.json({ users: list });
-});
 
-// Large file upload endpoint
-app.post('/api/upload', (req, res) => {
-  try {
-    const { name, size, type, dataUrl } = req.body;
-    if (!name || !dataUrl) {
-      res.status(400).json({ error: 'File data and name are required' });
-      return;
+  if (data.roomId) {
+
+    if (!messagesByRoom.has(data.roomId)) {
+      messagesByRoom.set(data.roomId, []);
     }
-    // Return formatted file response for immediate sharing in chat
-    res.json({
-      success: true,
-      file: {
-        id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        name,
-        size,
-        type,
-        url: dataUrl,
-        uploadedAt: Date.now(),
-      },
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
-// Setup Vite middleware in dev or static serving in prod
-// Setup Vite middleware in dev or static serving in prod
-async function startServer() {
-  const isProd = process.env.NODE_ENV === 'production';
+    const list = messagesByRoom.get(data.roomId)!;
 
-  if (!isProd) {
-    const { createServer: createViteServer } = await import('vite');
+    list.push(msg);
 
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-      },
-      appType: 'spa',
-    });
+    if(list.length > 200)
+      list.shift();
 
-    app.use(vite.middlewares);
 
-  } else {
+    broadcastToRoom(
+      data.roomId,
+      {
+        type:'new_chat_message',
+        message:msg
+      }
+    );
 
-    // Render production static files
-    const distPath = path.join(process.cwd(), 'dist');
 
-    console.log('Serving static files from:', distPath);
+  } else if(data.targetUsername){
 
-    app.use(express.static(distPath));
 
-    app.get('*', (req, res) => {
-      res.sendFile(
-        path.join(distPath, 'index.html')
-      );
-    });
+    ws.send(JSON.stringify({
+      type:'new_chat_message',
+      message:msg
+    }));
+
+
+    sendToUser(
+      data.targetUsername,
+      {
+        type:'new_chat_message',
+        message:msg
+      }
+    );
+
   }
 
-  const PORT = Number(process.env.PORT) || 10000;
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`);
-});
+  break;
 }
+
+
+default:
+ break;
+
+} // پایان switch
+
+
+} catch(err){
+
+ console.error(
+  'Error handling WebSocket message:',
+  err
+ );
+
+}
+
+
+}); // پایان ws.on message
+
+
+}); // پایان wss connection
+
+
+
+// API
+
+app.get('/api/health',(req,res)=>{
+
+res.json({
+ status:'ok',
+ activeConnections:clients.size,
+ registeredUsers:usersByUsername.size,
+ roomsCount:rooms.size,
+ timestamp:Date.now()
+});
+
+});
+
+
+app.get('/api/users',(req,res)=>{
+
+const list:UserProfile[]=[];
+
+for(const client of usersByUsername.values()){
+
+ if(client.user)
+   list.push(client.user);
+
+}
+
+
+res.json({
+ users:list
+});
+
+});
+
+
+
+// upload
+
+app.post('/api/upload',(req,res)=>{
+
+try{
+
+const {name,size,type,dataUrl}=req.body;
+
+
+if(!name || !dataUrl){
+
+return res.status(400).json({
+error:'File data and name are required'
+});
+
+}
+
+
+res.json({
+
+success:true,
+
+file:{
+id:`file_${Date.now()}`,
+name,
+size,
+type,
+url:dataUrl,
+uploadedAt:Date.now()
+}
+
+});
+
+
+}catch(err:any){
+
+res.status(500).json({
+error:err.message
+});
+
+}
+
+});
+
+
+
+
+// START SERVER
+
+async function startServer(){
+
+const isProd =
+process.env.NODE_ENV === 'production';
+
+
+
+if(!isProd){
+
+
+const {createServer:createViteServer}
+=
+await import('vite');
+
+
+const vite =
+await createViteServer({
+
+server:{
+middlewareMode:true
+},
+
+appType:'spa'
+
+});
+
+
+app.use(vite.middlewares);
+
+
+
+}else{
+
+
+const distPath =
+path.join(process.cwd(),'dist');
+
+
+console.log(
+'Serving static files:',
+distPath
+);
+
+
+
+app.use(
+express.static(distPath)
+);
+
+
+
+app.get('*splat',(req,res)=>{
+
+
+if(req.path.startsWith('/api')){
+
+return res.status(404).json({
+error:'API route not found'
+});
+
+}
+
+
+res.sendFile(
+path.join(
+distPath,
+'index.html'
+)
+
+);
+
+
+});
+
+
+}
+
+
+
+const PORT =
+Number(process.env.PORT) || 10000;
+
+
+
+server.listen(
+PORT,
+"0.0.0.0",
+()=>{
+
+console.log(
+`AvaCall Server running on port ${PORT}`
+);
+
+});
+
+
+}
+
+
 
 startServer();
