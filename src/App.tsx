@@ -754,22 +754,29 @@ export default function App() {
 
   // Send Chat Message (Text, Voice, Large File)
   const handleSendMessage = (payload: {
-    text?: string;
-    voiceUrl?: string;
-    voiceDuration?: number;
-    file?: any;
-  }) => {
-    if (!currentUser || !wsRef.current) return;
+  text?: string;
+  voiceUrl?: string;
+  voiceDuration?: number;
+  file?: any;
+}) => {
+  if (
+    !currentUser ||
+    !wsRef.current ||
+    wsRef.current.readyState !== WebSocket.OPEN
+  ) {
+    console.log("WebSocket not ready");
+    return;
+  }
 
-    wsRef.current.send(
-      JSON.stringify({
-        type: 'chat_message',
-        targetUsername: activeChatUser?.username,
-        roomId: activeRoomId || undefined,
-        ...payload,
-      })
-    );
-  };
+  wsRef.current.send(
+    JSON.stringify({
+      type: 'chat_message',
+      targetUsername: activeChatUser?.username,
+      roomId: activeRoomId || undefined,
+      ...payload,
+    })
+  );
+};
 
   // Send Typing Indicator
   const handleSendTyping = (typingState: boolean) => {
