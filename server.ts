@@ -470,26 +470,56 @@ app.post('/api/upload', (req, res) => {
 });
 
 // Setup Vite middleware in dev or static serving in prod
+
 async function startServer() {
+
   const isProd = process.env.NODE_ENV === 'production';
 
   if (!isProd) {
+
     const { createServer: createViteServer } = await import('vite');
+
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
+
     app.use(vite.middlewares);
+
   } else {
+
+    // Serve static files
     app.use(express.static(path.resolve(__dirname, 'dist')));
+
+    // Prevent API routes from returning index.html
+    app.use('/api', (req, res, next) => {
+      res.status(404).json({
+        error: 'API route not found'
+      });
+    });
+
+    // SPA fallback - only for frontend routes
     app.get('*', (req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+
+      if (
+        req.path.startsWith('/api') ||
+        req.path.startsWith('/ws')
+      ) {
+        return res.status(404).send('Not Found');
+      }
+
+      res.sendFile(
+        path.resolve(__dirname, 'dist', 'index.html')
+      );
     });
   }
 
   const PORT = process.env.PORT || 3000;
+
   server.listen(PORT, () => {
-    console.log(`AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`);
+    console.log(
+      `AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`
+    );
   });
 }
 
