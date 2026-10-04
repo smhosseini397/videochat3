@@ -428,7 +428,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Input Control Bottom Bar */}
-      <div className="p-3 bg-slate-900 border-t border-slate-800">
+      <div className="p-3 pb-24 bg-slate-900 border-t border-slate-800">
         {/* Hidden file input */}
         <input
           type="file"
