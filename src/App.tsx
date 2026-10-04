@@ -168,11 +168,11 @@ const reconnectAttemptRef = useRef(0);
 
   const wsUrl = 'wss://videochat3-q22j.onrender.com/ws';
 
-  const ws = new WebSocket(wsUrl);
-  wsRef.current = ws;
+const ws = new WebSocket(wsUrl);
+wsRef.current = ws;
 
-    ws.onopen = () => {
-  console.log("WebSocket connected, registering user:", currentUser.username);
+ws.onopen = () => {
+  console.log("WS OPEN - sending register", currentUser);
 
   ws.send(
     JSON.stringify({
