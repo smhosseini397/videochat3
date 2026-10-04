@@ -10,6 +10,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 
+server.on('upgrade', (request) => {
+  console.log('UPGRADE REQUEST:', request.url);
+});
 // Support large payloads for file sharing (up to 150MB)
 app.use(express.json({ limit: '150mb' }));
 app.use(express.urlencoded({ extended: true, limit: '150mb' }));
@@ -38,7 +41,17 @@ const messagesByRoom = new Map<string, any[]>(); // roomId or directKey -> messa
 
 // WebSocket Server
 const wss = new WebSocketServer({ server, path: '/ws' });
+wss.on('listening', () => {
+  console.log('WebSocket server listening');
+});
 
+wss.on('error', (err) => {
+  console.error('WebSocket error:', err);
+});
+
+wss.on('connection', () => {
+  console.log('NEW WEBSOCKET CONNECTION');
+});
 function broadcastUserList() {
   const onlineUsers: UserProfile[] = [];
   for (const client of usersByUsername.values()) {
