@@ -471,6 +471,8 @@ app.post('/api/upload', (req, res) => {
 
 // Setup Vite middleware in dev or static serving in prod
 
+// Setup Vite middleware in dev or static serving in prod
+
 async function startServer() {
 
   const isProd = process.env.NODE_ENV === 'production';
@@ -488,24 +490,30 @@ async function startServer() {
 
   } else {
 
-    // Serve static files
+    // Serve React build files
     app.use(express.static(path.resolve(__dirname, 'dist')));
 
-    // Prevent API routes from returning index.html
-    app.use('/api', (req, res, next) => {
-      res.status(404).json({
-        error: 'API route not found'
+    // Test API route
+    app.get('/api/test', (req, res) => {
+      console.log('API TEST CALLED');
+
+      res.json({
+        ok: true,
+        message: 'server api works',
+        time: Date.now()
       });
     });
 
-    // SPA fallback - only for frontend routes
+    // SPA fallback
     app.get('*', (req, res) => {
 
       if (
         req.path.startsWith('/api') ||
         req.path.startsWith('/ws')
       ) {
-        return res.status(404).send('Not Found');
+        return res.status(404).json({
+          error: 'Route not found'
+        });
       }
 
       res.sendFile(
@@ -514,6 +522,7 @@ async function startServer() {
     });
   }
 
+
   const PORT = process.env.PORT || 3000;
 
   server.listen(PORT, () => {
@@ -521,6 +530,7 @@ async function startServer() {
       `AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`
     );
   });
+
 }
 
 startServer();
