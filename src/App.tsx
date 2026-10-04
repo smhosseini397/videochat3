@@ -221,16 +221,16 @@ export default function App() {
           case 'call_response': {
   console.log("CALL RESPONSE RECEIVED:", data);
 
-  if (data.status === 'accepted') {
-    soundService.stopOutgoingRingback();
-    soundService.playConnectedTone();
+              if (data.status === 'accepted') {
+              soundService.stopOutgoingRingback();
+              soundService.playConnectedTone();
 
               setActiveCall((prev) =>
                 prev ? { ...prev, status: 'connected' } : null
               );
 
-              // Caller creates WebRTC offer
               const target = data.fromUsername;
+
               const pc = webrtcService.getOrCreatePeerConnection(
                 target,
                 (remoteStream) => {
@@ -239,12 +239,21 @@ export default function App() {
                   );
                 },
                 (targetUser, candidate) => {
-                  wsRef.current?.send(
+
+                  if (wsRef.current?.readyState !== WebSocket.OPEN) {
+                    console.warn("WebSocket not ready - ICE skipped");
+                    return;
+                  }
+
+                  wsRef.current.send(
                     JSON.stringify({
                       type: 'webrtc_signal',
                       callId: activeCall?.callId,
                       targetUsername: targetUser,
-                      signal: { type: 'candidate', candidate },
+                      signal: {
+                        type: 'candidate',
+                        candidate,
+                      },
                     })
                   );
                 }
@@ -252,16 +261,28 @@ export default function App() {
 
               const offer = await webrtcService.createOffer(target);
 
-              wsRef.current?.send(
-                JSON.stringify({
-                  type: 'webrtc_signal',
-                  callId: activeCall?.callId,
-                  targetUsername: target,
-                  signal: { type: 'offer', sdp: offer },
-                })
-              );
+
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+
+                wsRef.current.send(
+                  JSON.stringify({
+                    type: 'webrtc_signal',
+                    callId: activeCall?.callId,
+                    targetUsername: target,
+                    signal: {
+                      type: 'offer',
+                      sdp: offer,
+                    },
+                  })
+                );
+
+              } else {
+                console.warn("WebSocket not ready - offer not sent");
+              }
+
+
             } else {
-              // Rejected or Busy
+
               stopAllRinging();
               soundService.playEndCallTone();
 
@@ -278,69 +299,119 @@ export default function App() {
             break;
           }
 
+
           case 'call_failed': {
+
             stopAllRinging();
             soundService.playEndCallTone();
-            alert(data.message || 'برقراری تماس امکان‌پذیر نیست.');
+
+            alert(
+              data.message || 'برقراری تماس امکان‌پذیر نیست.'
+            );
+
             webrtcService.closeAll();
             setActiveCall(null);
+
             break;
           }
 
+
           case 'call_ended': {
+
             stopAllRinging();
             soundService.playEndCallTone();
+
             webrtcService.closeAll();
             setRemoteStreams(new Map());
             setActiveCall(null);
+
             break;
           }
 
+
+
           // WebRTC Signaling (Offer / Answer / ICE Candidate)
           case 'webrtc_signal': {
+
             const from = data.fromUsername;
             const signal = data.signal;
 
+
             if (signal.type === 'offer') {
+
               const pc = webrtcService.getOrCreatePeerConnection(
                 from,
+
                 (remoteStream) => {
                   setRemoteStreams((prev) =>
                     new Map(prev).set(from, remoteStream)
                   );
                 },
+
+
                 (targetUser, candidate) => {
-                  wsRef.current?.send(
+
+                  if (wsRef.current?.readyState !== WebSocket.OPEN) {
+                    console.warn("WebSocket not ready - ICE skipped");
+                    return;
+                  }
+
+                  wsRef.current.send(
                     JSON.stringify({
                       type: 'webrtc_signal',
                       callId: data.callId,
                       targetUsername: targetUser,
-                      signal: { type: 'candidate', candidate },
+                      signal: {
+                        type: 'candidate',
+                        candidate,
+                      },
                     })
                   );
+
                 }
               );
+
 
               const answer = await webrtcService.handleOffer(
                 from,
                 signal.sdp
               );
 
-              wsRef.current?.send(
-                JSON.stringify({
-                  type: 'webrtc_signal',
-                  callId: data.callId,
-                  targetUsername: from,
-                  signal: { type: 'answer', sdp: answer },
-                })
-              );
+
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+
+                wsRef.current.send(
+                  JSON.stringify({
+                    type: 'webrtc_signal',
+                    callId: data.callId,
+                    targetUsername: from,
+                    signal: {
+                      type: 'answer',
+                      sdp: answer,
+                    },
+                  })
+                );
+
+              } else {
+
+                console.warn("WebSocket not ready - answer not sent");
+
+              }
+
             } else if (signal.type === 'answer') {
-              await webrtcService.handleAnswer(from, signal.sdp);
+
+              await webrtcService.handleAnswer(
+                from,
+                signal.sdp
+              );
+
             } else if (signal.type === 'candidate') {
+
               await webrtcService.handleIceCandidate(
                 from,
                 signal.candidate
               );
+
             }
 
             break;
