@@ -112,19 +112,22 @@ wss.on('connection', (ws: WebSocket) => {
       const { type } = data;
 
       switch (type) {
-        // Register or update user profile
-        case 'register': {
-          const rawUsername = (data.username || '').toLowerCase().trim();
-          if (!rawUsername) return;
+      // Register or update user profile
+case 'register': {
+  const rawUsername = (data.username || '').toLowerCase().trim();
 
-          const profile: UserProfile = {
-            username: rawUsername,
-            displayName: data.displayName || rawUsername,
-            avatar: data.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${rawUsername}`,
-            bio: data.bio || 'همیشه در دسترس برای تماس و چت',
-            status: 'online',
-            lastSeen: Date.now(),
-          };
+  console.log("REGISTER REQUEST:", rawUsername);
+
+  if (!rawUsername) return;
+
+  const profile: UserProfile = {
+    username: rawUsername,
+    displayName: data.displayName || rawUsername,
+    avatar: data.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${rawUsername}`,
+    bio: data.bio || 'همیشه در دسترس برای تماس و چت',
+    status: 'online',
+    lastSeen: Date.now(),
+  };
 
           clientData.user = profile;
           usersByUsername.set(rawUsername, clientData);
