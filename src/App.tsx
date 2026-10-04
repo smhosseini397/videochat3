@@ -155,7 +155,7 @@ const reconnectAttemptRef = useRef(0);
   }, []);
 
   // WebSocket Setup & Signaling
-  cconst connectWebSocket = useCallback(() => {
+  const connectWebSocket = useCallback(() => {
   if (!currentUser) return;
 
   // جلوگیری از ساخت چند اتصال همزمان
