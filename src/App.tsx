@@ -99,9 +99,9 @@ export default function App() {
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
 
   // WebSocket Ref
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<any>(null);
-
+const wsRef = useRef<WebSocket | null>(null);
+const reconnectTimeoutRef = useRef<any>(null);
+const reconnectAttemptRef = useRef(0);
   // Apply theme to document element
   useEffect(() => {
     if (theme === 'dark') {
@@ -155,23 +155,32 @@ export default function App() {
   }, []);
 
   // WebSocket Setup & Signaling
-  const connectWebSocket = useCallback(() => {
-    if (!currentUser) return;
+  cconst connectWebSocket = useCallback(() => {
+  if (!currentUser) return;
 
-    const wsUrl = 'wss://videochat3-q22j.onrender.com/ws';
+  // جلوگیری از ساخت چند اتصال همزمان
+  if (
+    wsRef.current &&
+    wsRef.current.readyState === WebSocket.OPEN
+  ) {
+    return;
+  }
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+  const wsUrl = 'wss://videochat3-q22j.onrender.com/ws';
+
+  const ws = new WebSocket(wsUrl);
+  wsRef.current = ws;
 
     ws.onopen = () => {
-      // Register currentUser
-      ws.send(
-        JSON.stringify({
-          type: 'register',
-          ...currentUser,
-        })
-      );
-    };
+  console.log("WebSocket connected, registering user:", currentUser.username);
+
+  ws.send(
+    JSON.stringify({
+      type: 'register',
+      ...currentUser,
+    })
+  );
+};
 
     ws.onmessage = async (event) => {
       try {
@@ -180,9 +189,10 @@ export default function App() {
 
         switch (type) {
           case 'user_list': {
-            setOnlineUsers(data.users || []);
-            break;
-          }
+  console.log("Online users received:", data.users);
+  setOnlineUsers(data.users || []);
+  break;
+}
 
           // Incoming Call Alert
           case 'incoming_call': {
@@ -528,10 +538,18 @@ export default function App() {
     };
 
     ws.onclose = () => {
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connectWebSocket();
-      }, 3000);
-    };
+  console.log("WebSocket disconnected. Reconnecting...");
+
+  wsRef.current = null;
+
+  if (reconnectTimeoutRef.current) {
+    clearTimeout(reconnectTimeoutRef.current);
+  }
+
+  reconnectTimeoutRef.current = setTimeout(() => {
+    connectWebSocket();
+  }, 3000);
+};
   }, [currentUser, settings, activeCall, stopAllRinging, activeTab]);
 
   useEffect(() => {
