@@ -474,15 +474,15 @@ app.post('/api/upload', (req, res) => {
 // Setup Vite middleware in dev or static serving in prod
 
 async function startServer() {
-
   const isProd = process.env.NODE_ENV === 'production';
 
   if (!isProd) {
-
     const { createServer: createViteServer } = await import('vite');
 
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+      },
       appType: 'spa',
     });
 
@@ -490,30 +490,16 @@ async function startServer() {
 
   } else {
 
-    // Serve React build files
     app.use(express.static(path.resolve(__dirname, 'dist')));
 
-    // Test API route
-    app.get('/api/test', (req, res) => {
-      console.log('API TEST CALLED');
-
-      res.json({
-        ok: true,
-        message: 'server api works',
-        time: Date.now()
-      });
-    });
-
-    // SPA fallback
-    app.get('*', (req, res) => {
+    // فقط درخواست های غیر API و غیر WebSocket را به React بده
+    app.get('*', (req, res, next) => {
 
       if (
         req.path.startsWith('/api') ||
         req.path.startsWith('/ws')
       ) {
-        return res.status(404).json({
-          error: 'Route not found'
-        });
+        return next();
       }
 
       res.sendFile(
@@ -530,7 +516,6 @@ async function startServer() {
       `AvaCall Server running on port ${PORT} (${isProd ? 'production' : 'development'})`
     );
   });
-
 }
 
 startServer();
