@@ -38,7 +38,7 @@ const clients = new Map<WebSocket, SocketClient>();
 const usersByUsername = new Map<string, SocketClient>();
 const rooms = new Map<string, Set<string>>(); // roomId -> Set of usernames
 const messagesByRoom = new Map<string, any[]>(); // roomId or directKey -> messages
-
+const messagesByUser = new Map<string, any[]>(); // direct messages -> messages
 // WebSocket Server
 const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('listening', () => {
@@ -130,11 +130,30 @@ wss.on('connection', (ws: WebSocket) => {
           usersByUsername.set(rawUsername, clientData);
 
           ws.send(
-            JSON.stringify({
-              type: 'registered',
-              user: profile,
-            })
-          );
+  JSON.stringify({
+    type: 'registered',
+    user: profile,
+  })
+);
+
+// Send existing direct messages
+const userMessages: any[] = [];
+
+for (const [chatKey, msgs] of messagesByUser.entries()) {
+  if (chatKey.includes(rawUsername)) {
+    userMessages.push(...msgs);
+  }
+}
+
+if (userMessages.length > 0) {
+  ws.send(
+    JSON.stringify({
+      type: 'chat_history',
+      messages: userMessages,
+    })
+  );
+}
+
 
           broadcastUserList();
           break;
@@ -345,6 +364,18 @@ wss.on('connection', (ws: WebSocket) => {
           } else if (data.targetUsername) {
             // Direct message
             const targetUsername = data.targetUsername.toLowerCase().trim();
+            const chatKey = [sender.username.toLowerCase(), targetUsername]
+  .sort()
+  .join('_');
+
+if (!messagesByUser.has(chatKey)) {
+  messagesByUser.set(chatKey, []);
+}
+
+const list = messagesByUser.get(chatKey)!;
+list.push(msg);
+
+if (list.length > 200) list.shift();
             // Send to sender for confirmation
             ws.send(
               JSON.stringify({

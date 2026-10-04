@@ -367,6 +367,21 @@ export default function App() {
           }
 
           // Chat Messages
+          case 'chat_history': {
+  const history: ChatMessage[] = data.messages || [];
+
+  setMessages((prev) => {
+    const all = [...prev, ...history];
+
+    const unique = Array.from(
+      new Map(all.map((m) => [m.id, m])).values()
+    );
+
+    return unique.sort((a, b) => a.timestamp - b.timestamp);
+  });
+
+  break;
+}
           case 'new_chat_message': {
             const msg: ChatMessage = data.message;
             setMessages((prev) => {
