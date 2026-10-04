@@ -38,7 +38,7 @@ const clients = new Map<WebSocket, SocketClient>();
 const usersByUsername = new Map<string, SocketClient>();
 const rooms = new Map<string, Set<string>>(); // roomId -> Set of usernames
 const messagesByRoom = new Map<string, any[]>(); // roomId or directKey -> messages
-
+const messagesByUser = new Map<string, any[]>(); // direct messages -> messages
 // WebSocket Server
 const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('listening', () => {
@@ -130,11 +130,30 @@ wss.on('connection', (ws: WebSocket) => {
           usersByUsername.set(rawUsername, clientData);
 
           ws.send(
-            JSON.stringify({
-              type: 'registered',
-              user: profile,
-            })
-          );
+  JSON.stringify({
+    type: 'registered',
+    user: profile,
+  })
+);
+
+// Send existing direct messages
+const userMessages: any[] = [];
+
+for (const [chatKey, msgs] of messagesByUser.entries()) {
+  if (chatKey.includes(rawUsername)) {
+    userMessages.push(...msgs);
+  }
+}
+
+if (userMessages.length > 0) {
+  ws.send(
+    JSON.stringify({
+      type: 'chat_history',
+      messages: userMessages,
+    })
+  );
+}
+
 
           broadcastUserList();
           break;
@@ -317,17 +336,147 @@ case 'chat_message': {
   const sender = clientData.user;
   if (!sender) return;
 
-  const msg = {
-    id: data.id || `msg_${Date.now()}`,
-    senderUsername: sender.username,
-    senderDisplayName: sender.displayName,
-    senderAvatar: sender.avatar,
-    targetUsername: data.targetUsername?.toLowerCase().trim(),
-    roomId: data.roomId,
-    text: data.text || '',
-    voiceUrl: data.voiceUrl,
-    voiceDuration: data.voiceDuration,
-    file: data.file,
+ const msg = {
+  id: data.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+  senderUsername: sender.username,
+  senderDisplayName: sender.displayName,
+  senderAvatar: sender.avatar,
+  targetUsername: data.targetUsername ? data.targetUsername.toLowerCase().trim() : undefined,
+  roomId: data.roomId,
+  text: data.text || '',
+  voiceUrl: data.voiceUrl,
+  voiceDuration: data.voiceDuration,
+  file: data.file,
+  timestamp: Date.now(),
+};
+          if (data.roomId) {
+            // Room message
+            if (!messagesByRoom.has(data.roomId)) {
+              messagesByRoom.set(data.roomId, []);
+            }
+            const list = messagesByRoom.get(data.roomId)!;
+            list.push(msg);
+            if (list.length > 200) list.shift(); // keep last 200
+            broadcastToRoom(data.roomId, {
+              type: 'new_chat_message',
+              message: msg,
+            });
+          } else if (data.targetUsername) {
+            // Direct message
+            const targetUsername = data.targetUsername.toLowerCase().trim();
+            const chatKey = [sender.username.toLowerCase(), targetUsername]
+  .sort()
+  .join('_');
+
+if (!messagesByUser.has(chatKey)) {
+  messagesByUser.set(chatKey, []);
+}
+
+const list = messagesByUser.get(chatKey)!;
+list.push(msg);
+
+if (list.length > 200) list.shift();
+            // Send to sender for confirmation
+            ws.send(
+              JSON.stringify({
+                type: 'new_chat_message',
+                message: msg,
+              })
+            );
+            // Send to target
+            sendToUser(targetUsername, {
+              type: 'new_chat_message',
+              message: msg,
+            });
+          }
+          break;
+        }
+
+        // Typing indicator
+        case 'typing': {
+          const sender = clientData.user;
+          if (!sender) return;
+
+          if (data.roomId) {
+            broadcastToRoom(
+              data.roomId,
+              {
+                type: 'user_typing',
+                username: sender.username,
+                displayName: sender.displayName,
+                roomId: data.roomId,
+                isTyping: data.isTyping,
+              },
+              sender.username
+            );
+          } else if (data.targetUsername) {
+            sendToUser(data.targetUsername.toLowerCase().trim(), {
+              type: 'user_typing',
+              username: sender.username,
+              displayName: sender.displayName,
+              isTyping: data.isTyping,
+            });
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('Error handling WebSocket message:', err);
+    }
+  });
+
+  ws.on('close', () => {
+    clients.delete(ws);
+    if (clientData.user) {
+      const username = clientData.user.username;
+      usersByUsername.delete(username);
+
+      if (clientData.activeRoomId && rooms.has(clientData.activeRoomId)) {
+        const roomUsers = rooms.get(clientData.activeRoomId)!;
+        roomUsers.delete(username);
+        if (roomUsers.size === 0) {
+          rooms.delete(clientData.activeRoomId);
+        } else {
+          broadcastToRoom(clientData.activeRoomId, {
+            type: 'participant_left',
+            roomId: clientData.activeRoomId,
+            username,
+          });
+        }
+      }
+
+      broadcastUserList();
+    }
+  });
+});
+
+// Periodic ping to keep alive
+setInterval(() => {
+  for (const [ws, client] of clients.entries()) {
+    if (!client.isAlive) {
+      ws.terminate();
+      clients.delete(ws);
+      if (client.user) {
+        usersByUsername.delete(client.user.username);
+      }
+      continue;
+    }
+    client.isAlive = false;
+    ws.ping();
+  }
+}, 30000);
+
+// API Endpoints
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    activeConnections: clients.size,
+    registeredUsers: usersByUsername.size,
+    roomsCount: rooms.size,
+>>>>>>> bb38ba0 (fix chat history refresh)
     timestamp: Date.now(),
   };
 
