@@ -219,9 +219,11 @@ export default function App() {
 
           // Response to outgoing call
           case 'call_response': {
-            if (data.status === 'accepted') {
-              soundService.stopOutgoingRingback();
-              soundService.playConnectedTone();
+  console.log("CALL RESPONSE RECEIVED:", data);
+
+  if (data.status === 'accepted') {
+    soundService.stopOutgoingRingback();
+    soundService.playConnectedTone();
 
               setActiveCall((prev) =>
                 prev ? { ...prev, status: 'connected' } : null
